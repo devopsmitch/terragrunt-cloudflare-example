@@ -1,12 +1,12 @@
 module "zone" {
-  source = "../../modules/cloudflare-zone"
+  source = "../cloudflare-zone"
 
   zone_name = var.zone_name
   plan      = var.plan
 }
 
 module "zone_settings" {
-  source = "../../modules/cloudflare-zone-settings"
+  source = "../cloudflare-zone-settings"
 
   zone_id                  = module.zone.zone_id
   ssl                      = var.ssl
@@ -16,14 +16,14 @@ module "zone_settings" {
 }
 
 module "dns_records" {
-  source = "../../modules/cloudflare-dns-records"
+  source = "../cloudflare-dns-records"
 
   zone_id = module.zone.zone_id
   records = var.dns_records
 }
 
 module "page_rules" {
-  source = "../../modules/cloudflare-page-rules"
+  source = "../cloudflare-page-rules"
 
   zone_id    = module.zone.zone_id
   page_rules = var.page_rules

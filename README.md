@@ -1,12 +1,13 @@
-# Terraform Cloudflare Multi-Zone Management
+# Terragrunt Cloudflare Multi-Zone Management
 
-Manage multiple Cloudflare zones using reusable Terraform modules with isolated state per zone.
+Manage multiple Cloudflare zones using Terragrunt with reusable Terraform modules and isolated state per zone.
 
 ## Prerequisites
 
-- OpenTofu >= 1.11
+- Terragrunt >= 0.50
+- OpenTofu >= 1.11 (or Terraform >= 1.0)
 - Cloudflare account
-- AWS S3 bucket for remote state (or modify `backend.tf` for your backend)
+- AWS S3 bucket for remote state
 
 ## Cloudflare API Token Setup
 
@@ -39,34 +40,22 @@ Set the token as an environment variable:
 export TF_VAR_cloudflare_api_token="your-token-here"
 ```
 
-Or create a `terraform.tfvars` file (add to `.gitignore`):
-
-```hcl
-cloudflare_api_token = "your-token-here"
-```
-
 ## Repository Structure
 
 ```
 .
-├── modules/
+├── terragrunt.hcl                # Root config (S3 backend + Cloudflare provider)
+├── _terraform/
+│   ├── zone/                     # Parent module that calls all sub-modules
 │   ├── cloudflare-zone/          # Creates Cloudflare zones
 │   ├── cloudflare-dns-records/   # Manages DNS records
 │   ├── cloudflare-zone-settings/ # Configures zone settings (SSL, TLS, etc)
 │   └── cloudflare-page-rules/    # Manages page rules
 └── zones/
-    ├── example.com/               # Example zone with DNS records and settings
-    │   ├── main.tf                # Module calls
-    │   ├── variables.tf           # Input variables
-    │   ├── backend.tf             # State backend config
-    │   ├── versions.tf            # Provider requirements
-    │   └── terraform.tfvars       # Zone-specific values
-    └── example.net/               # Example zone with page rule redirect
-        ├── main.tf
-        ├── variables.tf
-        ├── backend.tf
-        ├── versions.tf
-        └── terraform.tfvars
+    ├── example.com/              # Example zone with DNS records and settings
+    │   └── terragrunt.hcl        # Zone-specific configuration
+    └── example.net/              # Example zone with page rule redirect
+        └── terragrunt.hcl
 ```
 
 ## Usage
@@ -79,52 +68,62 @@ cloudflare_api_token = "your-token-here"
 mkdir -p zones/yourdomain.com
 ```
 
-2. Copy the example zone files:
-
-```bash
-cp zones/example.com/*.tf zones/yourdomain.com/
-cp zones/example.com/terraform.tfvars zones/yourdomain.com/
-```
-
-3. Update `backend.tf` with a unique state key:
+2. Create `terragrunt.hcl`:
 
 ```hcl
+include "root" {
+  path = find_in_parent_folders()
+}
+
 terraform {
-  backend "s3" {
-    bucket = "terraform-state"
-    key    = "cloudflare/yourdomain.com/terraform.tfstate"
-    region = "us-east-1"
-  }
+  source = "../../_terraform/zone"
+}
+
+inputs = {
+  zone_name = "yourdomain.com"
+
+  ssl                      = "flexible"
+  always_use_https         = "on"
+  automatic_https_rewrites = "on"
+  min_tls_version          = "1.2"
+
+  dns_records = [
+    {
+      name    = "@"
+      type    = "A"
+      value   = "192.0.2.1"
+      proxied = true
+    }
+  ]
+
+  page_rules = []
 }
 ```
 
-4. Edit `terraform.tfvars` with your zone configuration:
-
-```hcl
-zone_name = "yourdomain.com"
-
-dns_records = [
-  {
-    name    = "@"
-    type    = "A"
-    value   = "192.0.2.1"
-    proxied = true
-  }
-]
-```
-
-5. Initialize and apply:
+3. Initialize and apply:
 
 ```bash
 cd zones/yourdomain.com
-terraform init
-terraform plan
-terraform apply
+terragrunt init
+terragrunt plan
+terragrunt apply
+```
+
+### Managing All Zones
+
+Run commands across all zones at once:
+
+```bash
+# Preview changes for all zones
+terragrunt run-all plan
+
+# Apply changes to all zones
+terragrunt run-all apply
 ```
 
 ### Managing DNS Records
 
-Edit the `dns_records` list in `terraform.tfvars`:
+Edit the `dns_records` list in your zone's `terragrunt.hcl`:
 
 ```hcl
 dns_records = [
@@ -160,7 +159,7 @@ dns_records = [
 
 ### Configuring Zone Settings
 
-Modify variables in `terraform.tfvars`:
+Modify settings in your zone's `terragrunt.hcl`:
 
 ```hcl
 ssl                      = "flexible"  # off, flexible, full, strict
@@ -185,6 +184,24 @@ page_rules = [
 ```
 
 ## Module Details
+
+### zone
+
+Parent module that orchestrates all sub-modules.
+
+**Inputs:**
+- `zone_name` - DNS zone name
+- `plan` - Plan type (default: "free")
+- `ssl` - SSL mode (default: "flexible")
+- `always_use_https` - Force HTTPS (default: "on")
+- `automatic_https_rewrites` - Auto HTTPS rewrites (default: "on")
+- `min_tls_version` - Minimum TLS version (default: "1.2")
+- `dns_records` - List of DNS records (default: [])
+- `page_rules` - List of page rules (default: [])
+
+**Outputs:**
+- `zone_id` - The zone ID
+- `name_servers` - Cloudflare nameservers
 
 ### cloudflare-zone
 
@@ -231,7 +248,7 @@ Manages page rules.
 ## Best Practices
 
 - Each zone has isolated state - changes to one zone don't affect others
-- Keep sensitive values in environment variables or use a secrets manager
-- Review `terraform plan` output before applying changes
-- Use version control for all configuration files (except `terraform.tfvars` with secrets)
+- Keep sensitive values in environment variables (`TF_VAR_cloudflare_api_token`)
+- Review `terragrunt plan` output before applying changes
+- Use version control for all configuration files
 - Tag your S3 state bucket with appropriate access controls
