@@ -1,10 +1,18 @@
 remote_state {
   backend = "s3"
   config = {
-    bucket  = "terraform-state"
-    key     = "cloudflare/${path_relative_to_include()}/terraform.tfstate"
-    region  = "us-east-1"
-    encrypt = true
+    bucket = "terraform-state"
+    key    = "cloudflare/${path_relative_to_include()}/terraform.tfstate"
+    region = "auto"
+
+    endpoints = { s3 = "https://${get_env("CLOUDFLARE_ACCOUNT_ID")}.r2.cloudflarestorage.com" }
+
+    skip_credentials_validation = true
+    skip_metadata_api_check     = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    skip_s3_checksum            = true
+    use_path_style              = true
   }
 }
 

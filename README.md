@@ -7,7 +7,62 @@ Manage multiple Cloudflare zones using Terragrunt with reusable Terraform module
 - Terragrunt >= 0.50
 - OpenTofu >= 1.11 (or Terraform >= 1.0)
 - Cloudflare account
-- AWS S3 bucket for remote state
+- Cloudflare R2 bucket for remote state
+
+## Cloudflare R2 Backend Setup
+
+### Creating the R2 Bucket
+
+1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com)
+2. Navigate to **R2 Object Storage**
+3. Click **Create bucket**
+4. Name your bucket (e.g., `terraform-state`)
+5. Enable **Object versioning** for state rollback capability
+
+Or use the Wrangler CLI:
+
+```bash
+wrangler r2 bucket create terraform-state
+```
+
+### Generating R2 API Tokens
+
+1. In the Cloudflare dashboard, navigate to **R2 Object Storage**
+2. Click **Manage R2 API Tokens**
+3. Click **Create API token**
+4. Set permissions to **Read & Write** for your bucket
+5. Save the **Access Key ID** and **Secret Access Key**
+
+### Finding Your Account ID
+
+Your Cloudflare account ID can be found:
+- In the dashboard URL: `https://dash.cloudflare.com/<account-id>/`
+- On the R2 overview page
+- In the right sidebar of most Cloudflare dashboard pages
+
+### Setting Environment Variables
+
+Export your R2 credentials and account ID:
+
+```bash
+export AWS_ACCESS_KEY_ID="your-r2-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-r2-secret-access-key"
+export CLOUDFLARE_ACCOUNT_ID="your-cloudflare-account-id"
+```
+
+Or add them to `~/.aws/credentials`:
+
+```ini
+[default]
+aws_access_key_id = your-r2-access-key-id
+aws_secret_access_key = your-r2-secret-access-key
+```
+
+And set the account ID separately:
+
+```bash
+export CLOUDFLARE_ACCOUNT_ID="your-cloudflare-account-id"
+```
 
 ## Cloudflare API Token Setup
 
